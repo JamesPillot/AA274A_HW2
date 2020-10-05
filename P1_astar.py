@@ -38,7 +38,25 @@ class AStar(object):
         Hint: look at the usage for the DetOccupancyGrid2D.is_free() method
         """
         ########## Code starts here ##########
-        
+
+        # Collect info about boundaries of map
+        boundaries = [(self.statespace_lo[0],self.statespace_lo[1]),(self.statespace_hi[0],self.statespace_hi[1])]
+
+        # Check if inside map
+        for dim in range(len(x)):
+            if x[dim] < boundaries[0][dim] or x[dim] > boundaries[1][dim]:
+                    return False
+
+        # Check if inside of obstacles
+        for obs in self.occupancy.obstacles:
+            inside = True
+            for dim in range(len(x)):
+                if x[dim] < obs[0][dim] or x[dim] > obs[1][dim]:
+                    inside = False
+                    break
+            if inside:
+                return False
+        return True
         ########## Code ends here ##########
 
     def distance(self, x1, x2):
@@ -53,7 +71,7 @@ class AStar(object):
         HINT: This should take one line.
         """
         ########## Code starts here ##########
-        
+        return np.linalg.norm(np.subtract(x2,x1))
         ########## Code ends here ##########
 
     def snap_to_grid(self, x):
@@ -86,6 +104,18 @@ class AStar(object):
         """
         neighbors = []
         ########## Code starts here ##########
+
+        x1 = x[0] #current x coordinate
+        x2 = x[1] #current y coordinate
+        res = self.resolution
+
+        # calculate neighbor positions from tuple of shifts to be made - order goes left, right, top, bottom, upper left,...
+        shift_list = [(-res,0), (res,0), (0,res), (0,-res),(-res,res),(res,res),(-res,-res),(res, -res)]
+        for shift in shift_list:
+            pre_snap_val = ((x1 + shift[0], x2 + shift[1])) # calculate neighbor position
+            neighbor_pos = self.snap_to_grid(pre_snap_val) # snap to grid
+            if(self.is_free(neighbor_pos)): # check if it's free and add it to the list
+                neighbors.append(neighbor_pos)
         
         ########## Code ends here ##########
         return neighbors
@@ -150,7 +180,29 @@ class AStar(object):
                 set membership efficiently using the syntax "if item in set".
         """
         ########## Code starts here ##########
-        
+        while(self.open_set > 0):
+            x_current = self.find_best_est_cost_through()
+            if x_current == self.x_goal:
+                self.path = self.reconstruct_path()
+                return self.path
+            self.open_set.remove(x_current)
+            self.closed_set.add(x_current)
+            for x_neigh in self.get_neighbors(x_current):
+                if x_neigh in self.closed_set:
+                    continue
+                tentative_cost_to_arrive = self.cost_to_arrive[x_current] + self.distance(x_current, x_neigh)
+                if x_neigh not in self.open_set:
+                    self.open_set.add(x_neigh)
+                elif tentative_cost_to_arrive > self.cost_to_arrive[x_neigh]:
+                    continue
+                self.came_from[x_neigh] = x_current
+                self.cost_to_arrive[x_neigh] = tentative_cost_to_arrive
+                self.est_cost_through[x_neigh] = tentative_cost_to_arrive + self.distance(x_neigh, self.x_goal)
+
+        return False
+
+
+
         ########## Code ends here ##########
 
 class DetOccupancyGrid2D(object):
