@@ -251,7 +251,12 @@ class DubinsRRT(RRT):
     def find_nearest(self, V, x):
         from dubins import path_length
         ########## Code starts here ##########
-        return path_length(V[:,0], V[:,1], V[:,2])
+        n = np.shape(V)[0] # pull out size of V 
+        dist = []
+        for i in range(0,n):
+            dist.append(path_length(x,V[i,:], self.turning_radius))
+
+        return np.argmin(dist) 
         ########## Code ends here ##########
 
     def steer_towards(self, x1, x2, eps):
@@ -265,11 +270,15 @@ class DubinsRRT(RRT):
         distance eps (using self.turning_radius) due to numerical precision
         issues.
         """
-        shortest_path = np.linalg.norm((x2-x1))
-        if shortest_path < eps:
+        from dubins import path_length
+        from dubins import path_sample
+
+        distance = path_length(x1,x2, self.turning_radius)
+
+        if distance < eps:
             return x2
         else:
-            return x1 + (((x2-x1)/(np.linalg.norm(x2-x1)))*eps)
+            return path_sample(x1,x2, 1.001*self.turning_radius,eps)[0][1] 
         ########## Code ends here ##########
 
     def is_free_motion(self, obstacles, x1, x2, resolution = np.pi/6):
