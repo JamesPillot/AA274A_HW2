@@ -254,7 +254,7 @@ class DubinsRRT(RRT):
         n = np.shape(V)[0] # pull out size of V 
         dist = []
         for i in range(0,n):
-            dist.append(path_length(x,V[i,:], self.turning_radius))
+            dist.append(path_length(V[i,:], x,self.turning_radius))
 
         return np.argmin(dist) 
         ########## Code ends here ##########
