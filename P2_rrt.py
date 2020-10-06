@@ -104,7 +104,43 @@ class RRT(object):
         #     are meaningful! keep this in mind when using the helper functions!
 
         ########## Code starts here ##########
-        
+        for k in range(1, max_iters):
+            z = np.random.random()
+            if z < goal_bias:
+                x_rand = self.x_goal
+            else:
+                # determine random state vector components
+                # rand_state_x1 = np.random.uniform(self.statespace_lo[0], self.statespace_hi[0]) 
+                # rand_state_x2 = np.random.uniform(self.statespace_lo[1], self.statespace_hi[1]) 
+                # rand_state_x3 = np.random.uniform(self.statespace_lo[2], self.statespace_hi[2]) 
+                # # assign random state
+                # x_rand = [rand_state_x1, rand_state_x2, rand_state_x3]
+
+                x_rand = np.ones(state_dim)
+                for i in range(state_dim):
+                    x_rand[i] = np.random.uniform(self.statespace_lo[i], self.statespace_hi[i])
+
+    
+            
+            nearest_neighbor_index = self.find_nearest(V[0:n,:],x_rand) 
+            x_near = V[nearest_neighbor_index,:]
+            x_new = self.steer_towards(x_near, x_rand, eps)
+            if self.is_free_motion(self.obstacles, x_near, x_new):
+                V[n,:] = x_new # Add vertex
+                P[n] = nearest_neighbor_index # Complete edge
+                if x_new[0] == self.x_goal[0] and x_new[1] == self.x_goal[1]:
+                    backwards_path = [self.x_goal]
+                    v_index_next_state_to_add = P[n]
+                    while(v_index_next_state_to_add != -1):
+                        next_state_to_add = V[v_index_next_state_to_add,:]
+                        backwards_path.append(next_state_to_add)
+                        v_index_next_state_to_add = P[v_index_next_state_to_add]
+                    self.path = list(reversed(backwards_path))
+                    success = True
+                    break
+                n += 1
+
+
         ########## Code ends here ##########
 
         plt.figure()
@@ -142,7 +178,16 @@ class RRT(object):
             None, but should modify self.path
         """
         ########## Code starts here ##########
-        
+        success = False
+        while not success:
+            success = True
+            for x in range(1,len(self.path) - 1):
+                    parent_x = self.path[(x-1)]
+                    child_x = self.path[(x+1)]
+                    if self.is_free_motion(self.obstacles, parent_x, child_x):
+                        self.path.pop(x)
+                        success = False
+                        break
         ########## Code ends here ##########
 
 class GeometricRRT(RRT):
@@ -154,13 +199,23 @@ class GeometricRRT(RRT):
     def find_nearest(self, V, x):
         ########## Code starts here ##########
         # Hint: This should take one line.
-        
+        n = np.shape(V)[0] # pull out size of V 
+        diff = x - V
+        dist = []
+        for i in range(0,n):
+            dist.append(np.linalg.norm(diff[i,:]))
+
+        return np.argmin(dist) 
         ########## Code ends here ##########
 
     def steer_towards(self, x1, x2, eps):
         ########## Code starts here ##########
         # Hint: This should take one line.
-        
+        shortest_path = np.linalg.norm((x2-x1))
+        if shortest_path < eps:
+            return x2
+        else:
+            return x1 + (((x2-x1)/(np.linalg.norm(x2-x1)))*eps)
         ########## Code ends here ##########
 
     def is_free_motion(self, obstacles, x1, x2):
@@ -196,7 +251,7 @@ class DubinsRRT(RRT):
     def find_nearest(self, V, x):
         from dubins import path_length
         ########## Code starts here ##########
-        
+        return path_length(V[:,0], V[:,1], V[:,2])
         ########## Code ends here ##########
 
     def steer_towards(self, x1, x2, eps):
@@ -210,7 +265,11 @@ class DubinsRRT(RRT):
         distance eps (using self.turning_radius) due to numerical precision
         issues.
         """
-        
+        shortest_path = np.linalg.norm((x2-x1))
+        if shortest_path < eps:
+            return x2
+        else:
+            return x1 + (((x2-x1)/(np.linalg.norm(x2-x1)))*eps)
         ########## Code ends here ##########
 
     def is_free_motion(self, obstacles, x1, x2, resolution = np.pi/6):
