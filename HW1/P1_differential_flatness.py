@@ -33,6 +33,16 @@ def compute_traj_coeffs(initial_state, final_state, tf):
     Hint: Use the np.linalg.solve function.
     """
     ########## Code starts here ##########
+    #solving Ax = b where x is the coeff vector of xi and yi 
+
+    coeff_mat = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [1, tf, tf**2, tf**3], [0, 1, 2*tf, 3*(tf**2)]])
+    A = np.block([[coeff_mat, np.zeros((4,4), int)], [np.zeros((4,4), int), coeff_mat]])
+
+    x0, y0, xd0, yd0 = initial_state.x, initial_state.y, initial_state.xd, initial_state.yd
+    xf, yf, xdf, ydf = final_state.x, final_state.y, final_state.xd, final_state.yd
+
+    b = np.array([x0, xd0, xf, xdf, y0, yd0, yf, ydf])
+    coeffs = linalg.solve(A,b)
 
     ########## Code ends here ##########
     return coeffs
@@ -50,7 +60,51 @@ def compute_traj(coeffs, tf, N):
     t = np.linspace(0,tf,N) # generate evenly spaced points from 0 to tf
     traj = np.zeros((N,7))
     ########## Code starts here ##########
-    
+
+    #Multiplying Vandermonde matrix by coeff vector to get x and y trajectories
+
+    # Build Vandermonde matrix
+    ones_vec = np.ones(N, int)
+    pos_Vandermonde =  np.column_stack((ones_vec, t, t**2, t**3))
+
+    # x trajectory
+    x_coeffs = coeffs[0:4]
+    x_traj = np.matmul(pos_Vandermonde, x_coeffs)
+
+    # y trajectory
+    y_coeffs = coeffs[4:]
+    y_traj = np.matmul(pos_Vandermonde, y_coeffs)
+
+    #Multiplying modified Vandermonde matrix by coeff vector to get x' and y' trajectories
+
+    # Build new Vandermonde matrix
+    zeroes_vec = np.zeros(N, int)
+    vel_Vandermonde = np.column_stack((zeroes_vec, ones_vec, 2*t, 3*(t**2)))
+
+    # x' trajectory
+    x_dot_traj = np.matmul(vel_Vandermonde, x_coeffs)
+
+    # y' trajectory 
+    y_dot_traj = np.matmul(vel_Vandermonde, y_coeffs)
+
+    # Use x' and y' to compute theta trajectory,  theta = arctan(y'/x')
+    theta_traj = np.arctan2(y_dot_traj, x_dot_traj)
+
+
+    #Multiplying modified Vandermonde matrix by coeff vector to get x'' and y'' trajectories
+
+    # Build new new Vandermonde matrix
+    twos_vec = 2*ones_vec
+    accel_Vandermonde = np.column_stack((zeroes_vec, zeroes_vec, twos_vec, 6*t))
+
+    # x'' trajectory
+    x_ddot_traj = np.matmul(accel_Vandermonde, x_coeffs)
+
+    # y'' trajectory
+    y_ddot_traj = np.matmul(accel_Vandermonde, y_coeffs)
+
+    # concatentate trajectories into output traj matrix
+    traj = np.column_stack((x_traj, y_traj, theta_traj, x_dot_traj, y_dot_traj, x_ddot_traj, y_ddot_traj))
     ########## Code ends here ##########
 
     return t, traj
@@ -64,7 +118,30 @@ def compute_controls(traj):
         om (np.array shape [N]) om at each point of traj
     """
     ########## Code starts here ##########
+
+    # Find velocity with V = x'/cos(theta)
+    cos_th = np.cos((traj[:,2]))
+    sin_th = np.sin((traj[:,2]))
+    cos_th_mod = np.where(cos_th == 0, sin_th, cos_th)
     
+    V  = traj[:,3] / cos_th_mod
+
+    N = np.shape(V)[0] #for om vec later
+
+    # Find om using Jacobian, V, and traj matrix
+    theta_vec = traj[:,2]
+    xddot_vec = traj[:,5]
+    yddot_vec = traj[:,6]
+    om = np.zeros((N,))
+    for i in range(N):
+        xddot = xddot_vec[i]
+        yddot = yddot_vec[i]
+        theta = theta_vec[i]
+        v_scalar = V[i]
+        b = np.array([xddot, yddot])
+        J = np.array([[np.cos(theta), -v_scalar*np.sin(theta)], [np.sin(theta), v_scalar*np.cos(theta)]])
+        u = linalg.solve(J,b)
+        om[i] = u[1]
     ########## Code ends here ##########
 
     return V, om
@@ -81,8 +158,9 @@ def compute_arc_length(V, t):
 
     Hint: Use the function cumtrapz. This should take one line.
     """
+    s = None
     ########## Code starts here ##########
-    
+    s = cumtrapz(V,t, initial = 0)
     ########## Code ends here ##########
     return s
 
@@ -104,6 +182,10 @@ def rescale_V(V, om, V_max, om_max):
     """
     ########## Code starts here ##########
     
+    om_constraint = np.multiply((om_max/om), V)
+    candidate_min = np.minimum(V_max, np.abs(om_constraint))
+    temp = np.minimum(np.abs(V), candidate_min)
+    V_tilde = np.multiply(np.sign(V), temp)
     ########## Code ends here ##########
     return V_tilde
 
@@ -120,7 +202,7 @@ def compute_tau(V_tilde, s):
     Hint: Use the function cumtrapz. This should take one line.
     """
     ########## Code starts here ##########
-    
+    tau =  cumtrapz((1/V_tilde),s, initial = 0)
     ########## Code ends here ##########
     return tau
 
@@ -137,7 +219,8 @@ def rescale_om(V, om, V_tilde):
     Hint: This should take one line.
     """
     ########## Code starts here ##########
-    
+    temp = np.multiply((1/V), V_tilde)
+    om_tilde = np.multiply(om, temp)
     ########## Code ends here ##########
     return om_tilde
 
@@ -206,7 +289,7 @@ if __name__ == "__main__":
     # Initial conditions
     s_0 = State(x=0, y=0, V=V_max, th=-np.pi/2)
 
-    # Final conditions
+    # Final conditons
     s_f = State(x=5, y=5, V=V_max, th=-np.pi/2)
 
     coeffs = compute_traj_coeffs(initial_state=s_0, final_state=s_f, tf=tf)
@@ -233,7 +316,7 @@ if __name__ == "__main__":
     plt.figure(figsize=(15, 7))
     plt.subplot(2, 2, 1)
     plt.plot(traj[:,0], traj[:,1], 'k-',linewidth=2)
-    plt.grid('on')
+    plt.grid(True)
     plt.plot(s_0.x, s_0.y, 'go', markerfacecolor='green', markersize=15)
     plt.plot(s_f.x, s_f.y, 'ro', markerfacecolor='red', markersize=15)
     plt.xlabel('X [m]')
@@ -244,7 +327,7 @@ if __name__ == "__main__":
     ax = plt.subplot(2, 2, 2)
     plt.plot(t, V, linewidth=2)
     plt.plot(t, om, linewidth=2)
-    plt.grid('on')
+    plt.grid(True)
     plt.xlabel('Time [s]')
     plt.legend(['V [m/s]', '$\omega$ [rad/s]'], loc="best")
     plt.title('Original Control Input')
@@ -255,7 +338,7 @@ if __name__ == "__main__":
         plt.plot(t_new, V_scaled, linewidth=2)
         plt.plot(t_new, om_scaled, linewidth=2)
         plt.legend(['V [m/s]', '$\omega$ [rad/s]'], loc="best")
-        plt.grid('on')
+        plt.grid(True)
     else:
         plt.text(0.5,0.5,"[Problem iv not completed]", horizontalalignment='center', verticalalignment='center', transform=plt.gca().transAxes)
     plt.xlabel('Time [s]')
@@ -273,7 +356,7 @@ if __name__ == "__main__":
         plt.legend(handles, labels, loc="best")
     else:
         plt.text(0.5,0.5,"[Problem iv not completed]", horizontalalignment='center', verticalalignment='center', transform=plt.gca().transAxes)
-    plt.grid('on')
+    plt.grid(True)
     plt.xlabel('Time [s]')
     plt.ylabel('Arc-length [m]')
     plt.title('Original and scaled arc-length')

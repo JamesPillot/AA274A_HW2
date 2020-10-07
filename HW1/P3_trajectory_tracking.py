@@ -58,8 +58,46 @@ class TrajectoryTracker:
         x_d, xd_d, xdd_d, y_d, yd_d, ydd_d = self.get_desired_state(t)
 
         ########## Code starts here ##########
-        V = 0
-        om = 0
+        
+        # Grab current velocity and avoid singularity due to noise
+        current_V = self.V_prev 
+        current_V = V_PREV_THRES if current_V == 0 else np.sign(current_V) * max(np.abs(current_V), V_PREV_THRES)
+        
+        # Build J inverse matrix to solve for a and w
+        J = np.array([[np.cos(th), -current_V*np.sin(th)], [np.sin(th), current_V*np.cos(th)]], dtype= 'float')
+        Jinv = linalg.inv(J)
+
+        # Implement control law
+        kpx, kdx = self.kpx, self.kdx
+        kpy, kdy = self.kpy, self.kdy
+
+        # compute x and x dot error
+        position_err_x = x_d - x
+        xd = np.multiply(current_V, np.cos(th)) # compute current vel in x direction
+        vel_err_x = xd_d - xd
+
+        # compute y and y dot error
+        position_err_y = y_d - y
+        yd = np.multiply(current_V, np.sin(th)) # compute current vel in y direction
+        vel_err_y = yd_d - yd
+
+        # Build vec of 2nd order derivatives of x and y
+        xdd = xdd_d + np.multiply(kpx, position_err_x) + np.multiply(kdx, vel_err_x)
+        ydd = ydd_d + np.multiply(kpy, position_err_y) + np.multiply(kdy, vel_err_y)
+
+        u1u2_vec = np.array([xdd,ydd])
+
+        # Solve for acceleration and omega
+        a_w_vec = np.matmul(Jinv, u1u2_vec)
+
+        # Pull out acceleration
+        a = a_w_vec[0]
+
+        # Get velocity from integrating over acceleration for timestep
+        V = current_V + (np.multiply(a,dt)) 
+
+        # Pull out angular velocity
+        om = a_w_vec[1]
         ########## Code ends here ##########
 
         # apply control limits
