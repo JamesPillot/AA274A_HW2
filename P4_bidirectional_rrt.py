@@ -132,7 +132,85 @@ class RRTConnect(object):
         # Hint: Use your implementation of RRT as a reference
 
         ########## Code starts here ##########
-        
+        V_fw[0,:] = self.x_init    
+        n_fw = 1               
+        V_bw[0,:] = self.x_goal
+        n_bw = 1
+        for k in range(1, max_iters):
+            # Random_State()
+            x_rand = np.ones(state_dim)
+            for i in range(state_dim):
+                x_rand[i] = np.random.uniform(self.statespace_lo[i], self.statespace_hi[i]) 
+            # Nearest_Neighbor_Forward(x_rand, V_fw)
+            nearest_neighbor_forward_index = self.find_nearest_forward(V_fw[0:n_fw,:], x_rand) 
+            x_near = V_fw[nearest_neighbor_forward_index,:]
+            # Steer_Towards_Forward(x_near, x_rand, eps)
+            x_new = self.steer_towards_forward(x_near, x_rand, eps)
+
+            if self.is_free_motion(self.obstacles, x_near, x_new):
+                V_fw[n_fw,:] = x_new # Add vertex
+                P_fw[n_fw] = nearest_neighbor_forward_index # Complete edge
+                nearest_neighbor_backward_index = self.find_nearest_backward(V_bw[0:n_bw,:], x_new) # Nearest_Neighbor_Backward(x_new, V_bw)
+                x_connect =  V_bw[nearest_neighbor_backward_index,:]
+                while True and success == False:
+                    x_new_connect = self.steer_towards_backward(x_new, x_connect, eps)
+                    if self.is_free_motion(self.obstacles, x_new_connect, x_connect):
+                        V_bw[n_bw,:] = x_new_connect # Add vertex
+                        P_bw[n_bw] = nearest_neighbor_backward_index # Complete edge
+                        if x_new_connect[0] == x_new[0] and x_new_connect[1] == x_new[1]:
+                            path_from_goal = [self.x_goal]
+                            vbw_index_next_state_to_add = P_bw[n_bw]
+                            while(vbw_index_next_state_to_add != -1):
+                                next_state_to_add = V_bw[vbw_index_next_state_to_add,:]
+                                path_from_goal.append(next_state_to_add)
+                                vbw_index_next_state_to_add = P_bw[vbw_index_next_state_to_add]
+                            self.path = list(reversed(path_from_goal))
+                            success = True
+                            break
+                        x_connect = x_new_connect
+                    else:
+                        break
+                n_bw += 1
+                if success == True:
+                    break
+
+                
+            # Random_State()
+            x_rand = np.ones(state_dim)
+            for i in range(state_dim):
+                x_rand[i] = np.random.uniform(self.statespace_lo[i], self.statespace_hi[i]) 
+            # Nearest_Neighbor_Backward(x_rand, V_bw)
+            nearest_neighbor_backward_index = self.find_nearest_backward(V_bw[0:n_bw,:], x_rand) 
+            x_near = V_bw[nearest_neighbor_backward_index,:]
+            # Steer_Towards_Backward(x_near, x_rand, eps)
+            x_new = self.steer_towards_backward(x_rand, x_near, eps)
+            if self.is_free_motion(self.obstacles, x_new, x_near):
+                V_bw[n_bw,:] = x_new # Add vertex
+                P_bw[n_bw] = nearest_neighbor_backward_index # Complete edge
+                nearest_neighbor_forward_index = self.find_nearest_forward(V_fw[0:n_fw,:], x_new) # Nearest_Neighbor_Forward(x_new, V_fw)
+                x_connect =  V_fw[nearest_neighbor_forward_index,:]
+                while True and success == False:
+                    x_new_connect = self.steer_towards_forward(x_connect, x_new, eps)
+                    if self.is_free_motion(self.obstacles, x_connect, x_new_connect):
+                        V_fw[n_fw,:] = x_new_connect # Add vertex
+                        P_fw[n_fw] = nearest_neighbor_forward_index # Complete edge   
+                        if x_new_connect[0] == x_new[0] and x_new_connect[1] == x_new_connect[1]:
+                            path_from_goal = [self.x_goal]
+                            vfw_index_next_state_to_add = P_fw[n_fw]
+                            while(vfw_index_next_state_to_add != -1):
+                                next_state_to_add = V_fw[vfw_index_next_state_to_add,:]
+                                path_from_goal.append(next_state_to_add)
+                                vfw_index_next_state_to_add = P_fw[vfw_index_next_state_to_add]
+                            self.path = list(reversed(path_from_goal))
+                            success = True
+                            break
+                        x_connect = x_new_connect
+                    else:
+                        break
+                n_fw += 1
+                if success == True:
+                    break
+
 
         ########## Code ends here ##########
 
@@ -166,7 +244,13 @@ class GeometricRRTConnect(RRTConnect):
     def find_nearest_forward(self, V, x):
         ########## Code starts here ##########
         # Hint: This should take one line.
-        
+        n = np.shape(V)[0] # pull out size of V 
+        diff = x - V
+        dist = []
+        for i in range(0,n):
+            dist.append(np.linalg.norm(diff[i,:]))
+
+        return np.argmin(dist) 
         ########## Code ends here ##########
 
     def find_nearest_backward(self, V, x):
@@ -175,7 +259,11 @@ class GeometricRRTConnect(RRTConnect):
     def steer_towards_forward(self, x1, x2, eps):
         ########## Code starts here ##########
         # Hint: This should take one line.
-        
+        shortest_path = np.linalg.norm((x2-x1))
+        if shortest_path < eps:
+            return x2
+        else:
+            return x1 + (((x2-x1)/(np.linalg.norm(x2-x1)))*eps)
         ########## Code ends here ##########
 
     def steer_towards_backward(self, x1, x2, eps):
@@ -229,22 +317,50 @@ class DubinsRRTConnect(RRTConnect):
 
     def find_nearest_forward(self, V, x):
         ########## Code starts here ##########
-        
+        from dubins import path_length
+        n = np.shape(V)[0] # pull out size of V 
+        dist = []
+        for i in range(0,n):
+            dist.append(path_length(V[i,:], x,self.turning_radius))
+
+        return np.argmin(dist) 
         ########## Code ends here ##########
 
     def find_nearest_backward(self, V, x):
         ########## Code starts here ##########
-        
+        from dubins import path_length
+        n = np.shape(V)[0] # pull out size of V 
+        dist = []
+        for i in range(0,n):
+            dist.append(path_length(x, V[i,:],self.turning_radius))
+
+        return np.argmin(dist)
         ########## Code ends here ##########
 
     def steer_towards_forward(self, x1, x2, eps):
         ########## Code starts here ##########
-        
+        from dubins import path_length
+        from dubins import path_sample
+
+        distance = path_length(x1,x2, self.turning_radius)
+
+        if distance < eps:
+            return x2
+        else:
+            return path_sample(x1,x2, 1.001*self.turning_radius,eps)[0][1] 
         ########## Code ends here ##########
 
     def steer_towards_backward(self, x1, x2, eps):
         ########## Code starts here ##########
-        
+        from dubins import path_length
+        from dubins import path_sample
+
+        distance = path_length(x2,x1, self.turning_radius)
+
+        if distance < eps:
+            return x1
+        else:
+            return path_sample(x2,x1, 1.001*self.turning_radius,eps)[0][1] 
         ########## Code ends here ##########
 
     def is_free_motion(self, obstacles, x1, x2, resolution = np.pi/6):
