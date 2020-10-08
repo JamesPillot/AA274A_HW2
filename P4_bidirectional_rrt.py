@@ -355,12 +355,14 @@ class DubinsRRTConnect(RRTConnect):
         from dubins import path_length
         from dubins import path_sample
 
-        distance = path_length(x2,x1, self.turning_radius)
+        distance = path_length(x1,x2, self.turning_radius)
 
         if distance < eps:
             return x1
         else:
-            return path_sample(x2,x1, 1.001*self.turning_radius,eps)[0][1] 
+            x1_rev = self.reverse_heading(x1)
+            x2_rev = self.reverse_heading(x2)
+            return path_sample(x1_rev,x2_rev, 1.001*self.turning_radius,eps)[0][1]
         ########## Code ends here ##########
 
     def is_free_motion(self, obstacles, x1, x2, resolution = np.pi/6):
