@@ -31,6 +31,7 @@ class SwitchingController(object):
 
         pose_control_V, pose_control_om = self.pose_controller.compute_control(x,y,th,t)
         traj_control_V, traj_control_om = self.traj_controller.compute_control(x,y,th,t)
+        
         if t > tf - self.t_before_switch:
             return pose_control_V, pose_control_om
         else:

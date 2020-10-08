@@ -39,12 +39,17 @@ class PoseController:
         k2 = self.k2
         k3 = self.k2
 
-        # phro = np.sqrt((x**2) + (y**2))
-        phro = np.sqrt(((self.x_g-x)**2) + ((self.y_g-y)**2))
-        # alpha = np.arctan2(y,x) - th + np.pi
-        alpha = np.arctan2((self.y_g-y),(self.x_g-x)) - th + np.pi
+        xdiff = x - self.x_g
+        ydiff = y - self.y_g
+        th_diff = wrapToPi(th- self.th_g)
+
+        xgA = xdiff*np.cos(self.th_g) + ydiff*np.sin(self.th_g)
+        ygA = -xdiff*np.sin(self.th_g) + ydiff*np.cos(self.th_g)
+        
+        phro = np.sqrt((xgA**2) + (ygA**2))
+        alpha = np.arctan2(ygA,xgA) - th_diff + np.pi
         alpha_wrapped = wrapToPi(alpha)
-        delta = alpha_wrapped + th
+        delta = alpha + th_diff
         delta_wrapped = wrapToPi(delta)
         
         V = k1*phro*np.cos(alpha_wrapped)
@@ -56,3 +61,4 @@ class PoseController:
         om = np.clip(om, -self.om_max, self.om_max)
 
         return V, om
+ 
