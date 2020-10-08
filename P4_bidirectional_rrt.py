@@ -362,7 +362,7 @@ class DubinsRRTConnect(RRTConnect):
         else:
             x1_rev = self.reverse_heading(x1)
             x2_rev = self.reverse_heading(x2)
-            return path_sample(x1_rev,x2_rev, 1.001*self.turning_radius,eps)[0][1]
+            return self.reverse_heading(path_sample(x1_rev,x2_rev, 1.001*self.turning_radius,eps)[0][1])
         ########## Code ends here ##########
 
     def is_free_motion(self, obstacles, x1, x2, resolution = np.pi/6):
