@@ -158,13 +158,13 @@ class RRTConnect(object):
                         V_bw[n_bw,:] = x_new_connect # Add vertex
                         P_bw[n_bw] = nearest_neighbor_backward_index # Complete edge
                         if x_new_connect[0] == x_new[0] and x_new_connect[1] == x_new[1]:
-                            path_from_goal = [self.x_goal]
-                            vbw_index_next_state_to_add = P_bw[n_bw]
-                            while(vbw_index_next_state_to_add != -1):
-                                next_state_to_add = V_bw[vbw_index_next_state_to_add,:]
-                                path_from_goal.append(next_state_to_add)
-                                vbw_index_next_state_to_add = P_bw[vbw_index_next_state_to_add]
-                            self.path = list(reversed(path_from_goal))
+                            # path_from_goal = [self.x_goal]
+                            # vbw_index_next_state_to_add = P_bw[n_bw]
+                            # while(vbw_index_next_state_to_add != -1):
+                            #     next_state_to_add = V_bw[vbw_index_next_state_to_add,:]
+                            #     path_from_goal.append(next_state_to_add)
+                            #     vbw_index_next_state_to_add = P_bw[vbw_index_next_state_to_add]
+                            # self.path = list(reversed(path_from_goal))
                             success = True
                             break
                         x_connect = x_new_connect
@@ -195,13 +195,13 @@ class RRTConnect(object):
                         V_fw[n_fw,:] = x_new_connect # Add vertex
                         P_fw[n_fw] = nearest_neighbor_forward_index # Complete edge   
                         if x_new_connect[0] == x_new[0] and x_new_connect[1] == x_new_connect[1]:
-                            path_from_goal = [self.x_goal]
-                            vfw_index_next_state_to_add = P_fw[n_fw]
-                            while(vfw_index_next_state_to_add != -1):
-                                next_state_to_add = V_fw[vfw_index_next_state_to_add,:]
-                                path_from_goal.append(next_state_to_add)
-                                vfw_index_next_state_to_add = P_fw[vfw_index_next_state_to_add]
-                            self.path = list(reversed(path_from_goal))
+                            # path_from_goal = [self.x_goal]
+                            # vfw_index_next_state_to_add = P_fw[n_fw]
+                            # while(vfw_index_next_state_to_add != -1):
+                            #     next_state_to_add = V_fw[vfw_index_next_state_to_add,:]
+                            #     path_from_goal.append(next_state_to_add)
+                            #     vfw_index_next_state_to_add = P_fw[vfw_index_next_state_to_add]
+                            # self.path = list(reversed(path_from_goal))
                             success = True
                             break
                         x_connect = x_new_connect
@@ -210,7 +210,21 @@ class RRTConnect(object):
                 n_fw += 1
                 if success == True:
                     break
+                
+        path_from_goal = []
+        vfw_index_next_state_to_add = P_fw[n_fw-1]
+        while(vfw_index_next_state_to_add != -1):
+            next_state_to_add = V_fw[vfw_index_next_state_to_add,:]
+            path_from_goal.append(next_state_to_add)
+            vfw_index_next_state_to_add = P_fw[vfw_index_next_state_to_add]
+        self.path = list(reversed(path_from_goal))
 
+        vbw_index_next_state_to_add = P_bw[n_bw-1]
+        while(vbw_index_next_state_to_add != -1):
+            next_state_to_add = V_bw[vbw_index_next_state_to_add,:]
+            self.path.append(next_state_to_add)
+            vbw_index_next_state_to_add = P_bw[vbw_index_next_state_to_add]
+        self.path.append(self.x_goal)
 
         ########## Code ends here ##########
 
@@ -362,7 +376,7 @@ class DubinsRRTConnect(RRTConnect):
         else:
             x1_rev = self.reverse_heading(x1)
             x2_rev = self.reverse_heading(x2)
-            return self.reverse_heading(path_sample(x1_rev,x2_rev, 1.001*self.turning_radius,eps)[0][1])
+            return self.reverse_heading(path_sample(x2_rev,x1_rev, 1.001*self.turning_radius,eps)[0][1])
         ########## Code ends here ##########
 
     def is_free_motion(self, obstacles, x1, x2, resolution = np.pi/6):
