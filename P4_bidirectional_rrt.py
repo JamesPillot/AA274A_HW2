@@ -150,6 +150,7 @@ class RRTConnect(object):
             if self.is_free_motion(self.obstacles, x_near, x_new):
                 V_fw[n_fw,:] = x_new # Add vertex
                 P_fw[n_fw] = nearest_neighbor_forward_index # Complete edge
+                n_fw += 1
                 nearest_neighbor_backward_index = self.find_nearest_backward(V_bw[0:n_bw,:], x_new) # Nearest_Neighbor_Backward(x_new, V_bw)
                 x_connect =  V_bw[nearest_neighbor_backward_index,:]
                 while True and success == False:
@@ -157,6 +158,7 @@ class RRTConnect(object):
                     if self.is_free_motion(self.obstacles, x_new_connect, x_connect):
                         V_bw[n_bw,:] = x_new_connect # Add vertex
                         P_bw[n_bw] = nearest_neighbor_backward_index # Complete edge
+                        n_bw += 1
                         if x_new_connect[0] == x_new[0] and x_new_connect[1] == x_new[1]:
                             # path_from_goal = [self.x_goal]
                             # vbw_index_next_state_to_add = P_bw[n_bw]
@@ -170,7 +172,6 @@ class RRTConnect(object):
                         x_connect = x_new_connect
                     else:
                         break
-                n_bw += 1
                 if success == True:
                     break
 
@@ -187,13 +188,15 @@ class RRTConnect(object):
             if self.is_free_motion(self.obstacles, x_new, x_near):
                 V_bw[n_bw,:] = x_new # Add vertex
                 P_bw[n_bw] = nearest_neighbor_backward_index # Complete edge
+                n_bw += 1
                 nearest_neighbor_forward_index = self.find_nearest_forward(V_fw[0:n_fw,:], x_new) # Nearest_Neighbor_Forward(x_new, V_fw)
                 x_connect =  V_fw[nearest_neighbor_forward_index,:]
                 while True and success == False:
                     x_new_connect = self.steer_towards_forward(x_connect, x_new, eps)
                     if self.is_free_motion(self.obstacles, x_connect, x_new_connect):
                         V_fw[n_fw,:] = x_new_connect # Add vertex
-                        P_fw[n_fw] = nearest_neighbor_forward_index # Complete edge   
+                        P_fw[n_fw] = nearest_neighbor_forward_index # Complete edge
+                        n_fw += 1   
                         if x_new_connect[0] == x_new[0] and x_new_connect[1] == x_new_connect[1]:
                             # path_from_goal = [self.x_goal]
                             # vfw_index_next_state_to_add = P_fw[n_fw]
@@ -207,10 +210,10 @@ class RRTConnect(object):
                         x_connect = x_new_connect
                     else:
                         break
-                n_fw += 1
                 if success == True:
                     break
-                
+
+        # Forward path        
         path_from_goal = []
         vfw_index_next_state_to_add = P_fw[n_fw-1]
         while(vfw_index_next_state_to_add != -1):
@@ -219,6 +222,7 @@ class RRTConnect(object):
             vfw_index_next_state_to_add = P_fw[vfw_index_next_state_to_add]
         self.path = list(reversed(path_from_goal))
 
+        # Add on backwards path
         vbw_index_next_state_to_add = P_bw[n_bw-1]
         while(vbw_index_next_state_to_add != -1):
             next_state_to_add = V_bw[vbw_index_next_state_to_add,:]
